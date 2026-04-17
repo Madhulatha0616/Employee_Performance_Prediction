@@ -1,77 +1,72 @@
-from flask import Flask, render_template, request
+import streamlit as st
 import pandas as pd
 import pickle
 
-# Create Flask app
-app = Flask(__name__)
-
-# Load trained model and data
+# Load model and data
 model = pickle.load(open("employee_model.pkl", "rb"))
 data = pd.read_csv("employee.csv")
 
-# Home page
-@app.route("/")
-def home():
-    return render_template("index.html")
+st.set_page_config(page_title="Employee Performance Prediction")
 
-# Prediction route
-@app.route("/predict", methods=["POST"])
-def predict():
-    emp_input = request.form["emp"]
+st.title("Employee Performance Prediction System")
 
-    # Find employee
-    if emp_input.isdigit():
-        emp = data[data["Employee_ID"] == int(emp_input)]
+st.write("Search employee by ID or Name")
+
+# Input
+emp_input = st.text_input("Enter Employee ID or Name")
+
+if st.button("Predict"):
+
+    if emp_input == "":
+        st.warning("Please enter Employee ID or Name")
+
     else:
-        emp = data[data["Name"].str.lower() == emp_input.lower()]
+        # Find employee
+        if emp_input.isdigit():
+            emp = data[data["Employee_ID"] == int(emp_input)]
+        else:
+            emp = data[data["Name"].str.lower() == emp_input.lower()]
 
-    if emp.empty:
-        return render_template(
-            "index.html",
-            prediction_text="Employee not found"
-        )
+        if emp.empty:
+            st.error("Employee not found")
 
-    # Predict performance
-    features = emp[['Age','Experience','Job_Satisfaction',
-                     'Work_Hours','Training_Hours']]
-    prediction = model.predict(features)[0]
+        else:
+            # Features for prediction
+            features = emp[['Age','Experience','Job_Satisfaction',
+                            'Work_Hours','Training_Hours']]
 
-    # Outcomes logic
-    if prediction == "Bad":
-        score = 25
-        risk = "High Risk"
-        recommendation = "Immediate training required"
-    elif prediction == "Average":
-        score = 70
-        risk = "Medium Risk"
-        recommendation = "Skill improvement needed"
-    elif prediction == "Good":
-        score = 90
-        risk = "Low Risk"
-        recommendation = "Eligible for incentives"
-    else:
-        score = 100
-        risk = "Very Low Risk"
-        recommendation = "Promotion recommended"
+            prediction = model.predict(features)[0]
 
-    # Experience level
-    exp = int(emp["Experience"].values[0])
-    if exp <= 2:
-        exp_level = "Fresher"
-    elif exp <= 5:
-        exp_level = "Mid-Level Employee"
-    else:
-        exp_level = "Senior Employee"
+            # Outcomes logic
+            if prediction == "Bad":
+                score = 25
+                risk = "High Risk"
+                recommendation = "Immediate training required"
+            elif prediction == "Average":
+                score = 70
+                risk = "Medium Risk"
+                recommendation = "Skill improvement needed"
+            elif prediction == "Good":
+                score = 90
+                risk = "Low Risk"
+                recommendation = "Eligible for incentives"
+            else:
+                score = 100
+                risk = "Very Low Risk"
+                recommendation = "Promotion recommended"
 
-    return render_template(
-        "index.html",
-        prediction_text=f"Performance Prediction: {prediction}",
-        score_text=f"Performance Score: {score}%",
-        risk_text=f"Risk Level: {risk}",
-        recommendation_text=f"HR Recommendation: {recommendation}",
-        experience_text=f"Experience Level: {exp_level}"
-    )
+            # Experience level
+            exp = int(emp["Experience"].values[0])
+            if exp <= 2:
+                exp_level = "Fresher"
+            elif exp <= 5:
+                exp_level = "Mid-Level Employee"
+            else:
+                exp_level = "Senior Employee"
 
-# Run app
-if __name__ == "__main__":
-    app.run(debug=True)
+            # Display results
+            st.success(f"Performance Prediction: {prediction}")
+            st.info(f"Performance Score: {score}%")
+            st.warning(f"Risk Level: {risk}")
+            st.success(f"HR Recommendation: {recommendation}")
+            st.write(f"Experience Level: {exp_level}")
